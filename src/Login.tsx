@@ -11,36 +11,54 @@ import {
   Button,
   Box,
   Center,
-  useMantineTheme,
 } from '@mantine/core';
-import { useForm } from 'react-hook-form';
-import { IconAt, IconLock } from '@tabler/icons-react';
-
+import { useForm, Controller } from 'react-hook-form';
+import { IconUser, IconLock } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 
 export function Login({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
-  const theme = useMantineTheme();
-
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: {
-      email: '',
+      identifier: '', // Replaced 'email' with 'identifier'
       password: '',
       remember: false,
     },
   });
 
   const onSubmit = async (data: any) => {
-    return new Promise((resolve) => setTimeout(resolve, 1500)).then(() => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: data.identifier,
+          password: data.password,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
       notifications.show({
         title: 'Welcome Back!',
         message: 'You have successfully logged in.',
         color: 'green',
       });
-    });
+      console.log('Login Data:', data);
+    } catch (error) {
+       notifications.show({
+        title: 'Error',
+        message: 'Invalid email/phone or password.',
+        color: 'red',
+      });
+    }
   };
 
   return (
@@ -71,7 +89,7 @@ export function Login({ onSwitchToRegister }: { onSwitchToRegister: () => void }
               boxShadow: '0 8px 15px rgba(255, 255, 255, 1)'
             }}
           >
-            KTM
+            BS
           </Box>
         </Center>
 
@@ -89,41 +107,70 @@ export function Login({ onSwitchToRegister }: { onSwitchToRegister: () => void }
           transition: 'box-shadow 0.3s ease',
         }}>
           <form onSubmit={handleSubmit(onSubmit)}>
-            <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              leftSection={<IconAt size={18} stroke={1.5} />}
-              {...register('email', {
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address',
-                },
-              })}
-              error={errors.email?.message as string}
-              size="md"
-              radius="md"
+            
+            <Controller
+              name="identifier"
+              control={control}
+              rules={{
+                required: 'Email or Phone Number is required',
+                validate: (value) => {
+                  const isEmail = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value);
+                  const isPhone = /^\d{10}$/.test(value);
+                  
+                  if (!isEmail && !isPhone) {
+                    return 'Please enter a valid email or 10-digit phone number';
+                  }
+                  return true;
+                }
+              }}
+              render={({ field }) => (
+                <TextInput
+                  {...field}
+                  label="Email or Phone Number"
+                  placeholder="you@example.com or 98XXXXXXXX"
+                  leftSection={<IconUser size={18} stroke={1.5} />}
+                  error={errors.identifier?.message as string}
+                  size="md"
+                  radius="md"
+                />
+              )}
             />
-            <PasswordInput
-              label="Password"
-              placeholder="Your password"
-              leftSection={<IconLock size={18} stroke={1.5} />}
-              mt="lg"
-              {...register('password', {
+
+            <Controller
+              name="password"
+              control={control}
+              rules={{
                 required: 'Password is required',
-                minLength: {
-                  value: 6,
-                  message: 'Password must be at least 6 characters',
-                },
-              })}
-              error={errors.password?.message as string}
-              size="md"
-              radius="md"
+              }}
+              render={({ field }) => (
+                <PasswordInput
+                  {...field}
+                  label="Password"
+                  placeholder="Your password"
+                  leftSection={<IconLock size={18} stroke={1.5} />}
+                  mt="lg"
+                  error={errors.password?.message as string}
+                  size="md"
+                  radius="md"
+                />
+              )}
             />
 
             <Group justify="space-between" mt="lg">
-              <Checkbox label="Remember me" size="sm" {...register('remember')} />
-              <Anchor component="button" size="sm" fw={500}>
+              <Controller
+                name="remember"
+                control={control}
+                render={({ field: { value, onChange, ...rest } }) => (
+                  <Checkbox 
+                    {...rest}
+                    checked={value}
+                    onChange={onChange}
+                    label="Remember me" 
+                    size="sm" 
+                  />
+                )}
+              />
+              <Anchor component="button" size="sm" fw={500} type="button">
                 Forgot password?
               </Anchor>
             </Group>

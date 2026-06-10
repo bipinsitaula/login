@@ -9,15 +9,16 @@ import {
   Button,
   Box,
   Center,
+  Group,
+  ActionIcon,
 } from '@mantine/core';
-import { useForm } from 'react-hook-form';
-import { IconAt, IconLock, IconUser } from '@tabler/icons-react';
-
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { IconAt, IconLock, IconUser, IconPhone, IconPlus, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 
 export function Register({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const {
-    register,
+    control,
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
@@ -27,12 +28,22 @@ export function Register({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
       email: '',
       password: '',
       confirmPassword: '',
+      // Initialize with one empty phone number input
+      phoneNumbers: [{ number: '' }], 
     },
+  });
+
+  // Setup useFieldArray for dynamic phone numbers
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'phoneNumbers',
   });
 
   const onSubmit = async (data: any) => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      
+      // Note: Make sure your backend API expects the new phoneNumbers array structure!
       const response = await fetch(`${apiUrl}/auth/register`, {
         method: 'POST',
         headers: {
@@ -42,6 +53,7 @@ export function Register({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
           name: data.name,
           email: data.email,
           password: data.password,
+          phoneNumbers: data.phoneNumbers.map((p: any) => p.number), // flatten the array of objects to array of strings
         }),
       });
       
@@ -93,7 +105,7 @@ export function Register({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
               boxShadow: '0 8px 15px rgba(255, 255, 255, 1)'
             }}
           >
-            KTM
+            BS
           </Box>
         </Center>
 
@@ -111,63 +123,143 @@ export function Register({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
           transition: 'box-shadow 0.3s ease',
         }}>
           <form onSubmit={handleSubmit(onSubmit)}>
-            <TextInput
-              label="Name"
-              placeholder="Your Name"
-              leftSection={<IconUser size={18} stroke={1.5} />}
-              {...register('name', { required: 'Name is required' })}
-              error={errors.name?.message as string}
-              size="md"
-              radius="md"
+            
+            {/* Example Using Controller API */}
+            <Controller
+              name="name"
+              control={control}
+              rules={{ required: 'Name is required' }}
+              render={({ field }) => (
+                <TextInput
+                  {...field}
+                  label="Name"
+                  placeholder="Your Name"
+                  leftSection={<IconUser size={18} stroke={1.5} />}
+                  error={errors.name?.message as string}
+                  size="md"
+                  radius="md"
+                />
+              )}
             />
-            <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              leftSection={<IconAt size={18} stroke={1.5} />}
-              mt="lg"
-              {...register('email', {
+
+            <Controller
+              name="email"
+              control={control}
+              rules={{
                 required: 'Email is required',
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                   message: 'Invalid email address',
                 },
-              })}
-              error={errors.email?.message as string}
-              size="md"
-              radius="md"
+              }}
+              render={({ field }) => (
+                <TextInput
+                  {...field}
+                  label="Email"
+                  placeholder="you@example.com"
+                  leftSection={<IconAt size={18} stroke={1.5} />}
+                  mt="lg"
+                  error={errors.email?.message as string}
+                  size="md"
+                  radius="md"
+                />
+              )}
             />
-            <PasswordInput
-              label="Password"
-              placeholder="Your password"
-              leftSection={<IconLock size={18} stroke={1.5} />}
-              mt="lg"
-              {...register('password', {
+
+            {/* Dynamic Phone Numbers */}
+            <Box mt="lg">
+              <Group justify="space-between" mb="xs">
+                <Text size="sm" fw={500}>Phone Numbers</Text>
+                <ActionIcon variant="light" color="blue" onClick={() => append({ number: '' })}>
+                  <IconPlus size={16} />
+                </ActionIcon>
+              </Group>
+
+              {fields.map((item, index) => (
+                <Group key={item.id} mt="xs" align="flex-start">
+                  <Controller
+                    name={`phoneNumbers.${index}.number` as const}
+                    control={control}
+                    rules={{
+                      required: 'Phone number is required',
+                      pattern: {
+                        value: /^\d{10}$/, 
+                        message: 'Must be a valid 10-digit number'
+                      }
+                    }}
+                    render={({ field }) => (
+                      <TextInput
+                        {...field}
+                        placeholder="Enter phone number"
+                        leftSection={<IconPhone size={18} stroke={1.5} />}
+                        error={errors.phoneNumbers?.[index]?.number?.message as string}
+                        size="md"
+                        radius="md"
+                        style={{ flex: 1 }}
+                      />
+                    )}
+                  />
+                  {fields.length > 1 && (
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      mt={4}
+                      onClick={() => remove(index)}
+                    >
+                      <IconTrash size={20} />
+                    </ActionIcon>
+                  )}
+                </Group>
+              ))}
+            </Box>
+
+            <Controller
+              name="password"
+              control={control}
+              rules={{
                 required: 'Password is required',
                 minLength: {
                   value: 6,
                   message: 'Password must be at least 6 characters',
                 },
-              })}
-              error={errors.password?.message as string}
-              size="md"
-              radius="md"
+              }}
+              render={({ field }) => (
+                <PasswordInput
+                  {...field}
+                  label="Password"
+                  placeholder="Your password"
+                  leftSection={<IconLock size={18} stroke={1.5} />}
+                  mt="lg"
+                  error={errors.password?.message as string}
+                  size="md"
+                  radius="md"
+                />
+              )}
             />
-            <PasswordInput
-              label="Confirm Password"
-              placeholder="Confirm your password"
-              leftSection={<IconLock size={18} stroke={1.5} />}
-              mt="lg"
-              {...register('confirmPassword', {
+
+            <Controller
+              name="confirmPassword"
+              control={control}
+              rules={{
                 required: 'Please confirm your password',
                 validate: (val) => {
-                  if (watch('password') != val) {
-                    return 'Your passwords do no match';
+                  if (watch('password') !== val) {
+                    return 'Your passwords do not match';
                   }
                 },
-              })}
-              error={errors.confirmPassword?.message as string}
-              size="md"
-              radius="md"
+              }}
+              render={({ field }) => (
+                <PasswordInput
+                  {...field}
+                  label="Confirm Password"
+                  placeholder="Confirm your password"
+                  leftSection={<IconLock size={18} stroke={1.5} />}
+                  mt="lg"
+                  error={errors.confirmPassword?.message as string}
+                  size="md"
+                  radius="md"
+                />
+              )}
             />
 
             <Button
